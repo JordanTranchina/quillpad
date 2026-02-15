@@ -6,7 +6,6 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import org.qosp.notes.components.MediaStorageManager
 import org.qosp.notes.data.repo.NoteRepository
 import org.qosp.notes.preferences.NoteDeletionTime
 import org.qosp.notes.preferences.PreferenceRepository
@@ -17,7 +16,6 @@ class BinCleaningWorker(
     params: WorkerParameters,
     private val preferenceRepository: PreferenceRepository,
     private val noteRepository: NoteRepository,
-    private val mediaStorageManager: MediaStorageManager,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -32,7 +30,6 @@ class BinCleaningWorker(
             .toTypedArray()
 
         noteRepository.deleteNotes(*toBeDeleted)
-        mediaStorageManager.cleanUpStorage()
 
         Result.success()
     }

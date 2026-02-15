@@ -31,12 +31,8 @@ import org.koin.android.ext.koin.androidLogger
 import org.koin.androidx.workmanager.koin.workManagerFactory
 import org.koin.core.context.startKoin
 import org.qosp.notes.components.workers.BinCleaningWorker
-import org.qosp.notes.components.workers.SyncWorker
-import org.qosp.notes.di.MarkwonModule
-import org.qosp.notes.di.NextcloudModule
 import org.qosp.notes.di.PreferencesModule
 import org.qosp.notes.di.RepositoryModule
-import org.qosp.notes.di.SyncModule
 import org.qosp.notes.di.UIModule
 import org.qosp.notes.di.UtilModule
 import java.util.concurrent.TimeUnit
@@ -72,13 +68,10 @@ class App : Application(), ImageLoaderFactory {
             workManagerFactory()
             modules(
                 listOf(
-                    MarkwonModule.markwonModule,
-                    NextcloudModule.nextcloudModule,
                     PreferencesModule.prefModule,
                     RepositoryModule.repoModule,
                     UIModule.uiModule,
                     UtilModule.utilModule,
-                    SyncModule.syncModule,
                 )
             )
         }
@@ -125,23 +118,23 @@ class App : Application(), ImageLoaderFactory {
         val notificationManager =
             ContextCompat.getSystemService(this, NotificationManager::class.java) ?: return
 
-        listOf(
-            NotificationChannel(
-                REMINDERS_CHANNEL_ID,
-                getString(R.string.notifications_channel_reminders),
-                NotificationManager.IMPORTANCE_HIGH
-            ),
-            NotificationChannel(
-                BACKUPS_CHANNEL_ID,
-                getString(R.string.notifications_channel_backups),
-                NotificationManager.IMPORTANCE_DEFAULT
-            ),
-            NotificationChannel(
-                PLAYBACK_CHANNEL_ID,
-                getString(R.string.notifications_channel_playback),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-        ).forEach { notificationManager.createNotificationChannel(it) }
+//        listOf(
+//            NotificationChannel(
+//                REMINDERS_CHANNEL_ID,
+//                getString(R.string.notifications_channel_reminders),
+//                NotificationManager.IMPORTANCE_HIGH
+//            ),
+//            NotificationChannel(
+//                BACKUPS_CHANNEL_ID,
+//                getString(R.string.notifications_channel_backups),
+//                NotificationManager.IMPORTANCE_DEFAULT
+//            ),
+//            NotificationChannel(
+//                PLAYBACK_CHANNEL_ID,
+//                getString(R.string.notifications_channel_playback),
+//                NotificationManager.IMPORTANCE_DEFAULT
+//            )
+//        ).forEach { notificationManager.createNotificationChannel(it) }
     }
 
     private fun enqueueWorkers() {
@@ -149,11 +142,6 @@ class App : Application(), ImageLoaderFactory {
 
         val periodicRequests = listOf(
             "BIN_CLEAN" to PeriodicWorkRequestBuilder<BinCleaningWorker>(5, TimeUnit.HOURS)
-                .build(),
-            "SYNC" to PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
-                .setConstraints(
-                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-                )
                 .build(),
         )
 

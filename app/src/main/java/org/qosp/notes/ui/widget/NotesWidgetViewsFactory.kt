@@ -29,7 +29,6 @@ class NotesWidgetViewsFactory(private val context: Context) : RemoteViewsService
         runBlocking {
             try {
                 notes = noteRepository.getNonDeletedOrArchived().first()
-                    .filter { it.isPinned }
                     .sortedByDescending { it.modifiedDate }.take(20) // Show up to 20 notes
                 Log.d("NotesWidgetFactory", "Loaded ${notes.size} notes")
             } catch (e: Exception) {
@@ -50,31 +49,21 @@ class NotesWidgetViewsFactory(private val context: Context) : RemoteViewsService
 
         try {
             if (position >= notes.size) {
+                // Return a placeholder or empty view if index is out of bounds
                 return views
             }
 
             val note = notes[position]
 
             // Set note title
-            val title = note.title.ifBlank {
-                note.content.take(50).lines().firstOrNull()?.trim() ?: "Untitled"
-            }
+            val title = note.title.ifBlank { "Untitled Checklist" }
             views.setTextViewText(R.id.widget_note_title, title)
 
-            // Set note content
-            val content = when {
-                note.isList -> {
-                    val taskCount = note.taskList.size
-                    val doneCount = note.taskList.count { it.isDone }
-                    "$doneCount / $taskCount tasks"
-                }
-
-                note.content.isNotBlank() -> {
-                    note.content.take(100).replace("\n", " ")
-                }
-
-                else -> ""
-            }
+            // Set note content (checklist summary)
+            val taskCount = note.taskList.size
+            val doneCount = note.taskList.count { it.isDone }
+            val content = "$doneCount / $taskCount tasks"
+            
             views.setTextViewText(R.id.widget_note_content, content)
 
             // Set the date

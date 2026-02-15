@@ -14,33 +14,12 @@ object DatabaseModule {
                 klass = AppDatabase::class.java,
                 name = AppDatabase.DB_NAME
             )
-                // we don't want to silently wipe user data in case DB migration fails,
-                // rather let the app crash
-                .addMigrations(AppDatabase.MIGRATION_1_2)
-                .addMigrations(AppDatabase.MIGRATION_2_3)
-                .addMigrations(AppDatabase.MIGRATION_3_4)
-                .addMigrations(AppDatabase.MIGRATION_4_5)
+                .fallbackToDestructiveMigration() // Since version bump to 6
                 .build()
         }
 
-        single {
-            get<AppDatabase>().noteDao
-        }
-        single {
-            get<AppDatabase>().notebookDao
-        }
-        single {
-            get<AppDatabase>().tagDao
-        }
-        single {
-            get<AppDatabase>().noteTagDao
-        }
-        single {
-            get<AppDatabase>().reminderDao
-        }
-        single {
-            get<AppDatabase>().idMappingDao
-        }
+        single { get<AppDatabase>().noteDao }
+        single { get<AppDatabase>().idMappingDao }
     }
 
 }

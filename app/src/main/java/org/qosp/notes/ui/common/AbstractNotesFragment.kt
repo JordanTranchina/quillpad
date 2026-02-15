@@ -4,7 +4,6 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.view.Menu
 import android.view.View
-import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.annotation.CallSuper
 import androidx.annotation.LayoutRes
@@ -13,9 +12,7 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.fragment.app.clearFragmentResult
 import androidx.fragment.app.setFragmentResultListener
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.fragment.findNavController
@@ -27,14 +24,9 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialElevationScale
-import io.noties.markwon.Markwon
 import kotlinx.coroutines.launch
-import org.koin.android.ext.android.inject
 import org.qosp.notes.R
 import org.qosp.notes.data.model.Note
-import org.qosp.notes.data.sync.core.BaseResult
-import org.qosp.notes.data.sync.core.ServerNotSupported
-import org.qosp.notes.data.sync.core.Unauthorized
 import org.qosp.notes.databinding.LayoutNoteBinding
 import org.qosp.notes.preferences.LayoutMode
 import org.qosp.notes.ui.common.recycler.NoteRecyclerAdapter
@@ -44,7 +36,6 @@ import org.qosp.notes.ui.utils.collect
 import org.qosp.notes.ui.utils.liftAppBarOnScroll
 import org.qosp.notes.ui.utils.shareNote
 import org.qosp.notes.ui.utils.views.BottomSheet
-import org.qosp.notes.ui.widget.WidgetUpdateHelper
 import java.util.concurrent.TimeUnit
 
 private typealias Data = AbstractNotesViewModel.Data
@@ -71,14 +62,6 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
     protected var data = Data()
 
     private var snackbar: Snackbar? = null
-    private var showHiddenNotes: Boolean
-        get() = activityModel.showHiddenNotes
-        set(value) {
-            activityModel.showHiddenNotes = value
-            recyclerAdapter.showHiddenNotes = value
-        }
-
-    val markwon: Markwon by inject()
 
     // Bug:
     //
@@ -101,18 +84,6 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
                 controller.removeOnDestinationChangedListener(this)
                 isListenerSet = false
             }
-        }
-    }
-
-    private fun BaseResult.showToastOnCriticalError() {
-        val resId = when (this) {
-            ServerNotSupported -> R.string.message_server_not_compatible
-            Unauthorized -> R.string.message_invalid_credentials
-            else -> null
-        }
-
-        resId?.let {
-            Toast.makeText(requireContext(), getString(it), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -151,10 +122,8 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
 
         recyclerAdapter = NoteRecyclerAdapter(
             listener = listener,
-            markwon = markwon,
         ).apply {
             stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
-            showHiddenNotes = this@AbstractNotesFragment.showHiddenNotes
 
             setOnListChangedListener {
                 val shouldDisplayIndicator = it.isEmpty()
@@ -220,39 +189,11 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
         // Set up an observer to change the notes list whenever they update
         model.data.collect(viewLifecycleOwner, ::onDataChanged)
 
-        // Sync on refresh
+        // Disable pull to refresh as sync is removed, but keep listener to just stop animation
         swipeRefreshLayout.setOnRefreshListener {
-            viewLifecycleOwner.lifecycleScope
-                .launch {
-                    activityModel
-                        .syncAsync()
-                        .await()
-                        .showToastOnCriticalError()
-                    swipeRefreshLayout.isRefreshing = false
-                }
+            swipeRefreshLayout.isRefreshing = false
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                swipeRefreshLayout.isRefreshing = false
-
-                val discardedNotes = activityModel
-                    .discardEmptyNotesAsync()
-                    .await()
-
-                if (discardedNotes) {
-                    sendMessage(getString(R.string.indicator_empty_note_discarded))
-                }
-
-                if (model.isSyncingEnabled() && !recyclerAdapter.searchMode) {
-                    activityModel
-                        .syncAsync()
-                        .await()
-                        .showToastOnCriticalError()
-                }
-                swipeRefreshLayout.isRefreshing = false
-            }
-        }
         postponeEnterTransition(1500L, TimeUnit.MILLISECONDS)
     }
 
@@ -332,12 +273,9 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
             val selectedNotes = recyclerAdapter.getSelectedItems().toTypedArray()
 
             when (item.itemId) {
-                R.id.action_pin_selected -> activityModel.pinNotes(*selectedNotes)
-                R.id.action_compact_preview_selected -> activityModel.compactPreviewNotes(*selectedNotes)
-                R.id.action_full_preview_selected -> activityModel.fullPreviewNotes(*selectedNotes)
                 R.id.action_archive_selected -> {
                     activityModel.archiveNotes(*selectedNotes)
-                    sendMessage(
+                    showMessage(
                         if (selectedNotes.size > 1) getString(R.string.indicator_archived_notes) else getString(
                             R.string.indicator_archive_note
                         )
@@ -349,27 +287,22 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
                     activityModel.deleteNotes(*selectedNotes)
                     lifecycleScope.launch {
                         if (data.noteDeletionTimeInDays == 0L) {
-                            sendMessage(getString(R.string.indicator_deleted_notes_permanently))
+                            showMessage(getString(R.string.indicator_deleted_notes_permanently))
                         } else {
-                            sendMessage(getString(R.string.indicator_moved_notes_to_bin))
+                            showMessage(getString(R.string.indicator_moved_notes_to_bin))
                         }
                     }
                 }
                 R.id.action_delete_permanently_selected -> {
                     activityModel.deleteNotesPermanently(*selectedNotes)
-                    sendMessage(
+                    showMessage(
                         if (selectedNotes.size > 1) getString(R.string.indicator_deleted_notes_permanently) else getString(
                             R.string.indicator_deleted_note_permanently
                         )
                     )
                 }
-                R.id.action_hide_selected -> activityModel.hideNotes(*selectedNotes)
                 R.id.action_duplicate_selected -> activityModel.duplicateNotes(*selectedNotes)
-                R.id.action_move_selected -> showMoveToNotebookDialog(*selectedNotes)
-                R.id.action_export_selected -> {
-                    activityModel.notesToBackup = selectedNotes.toSet()
-                    exportNotesLauncher.launch(null)
-                }
+
                 R.id.action_select_all -> {
                     selectAllNotes()
                     clearSelectionAfterAction = false
@@ -411,15 +344,6 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
         }
     }
 
-    protected fun toggleHiddenNotes() {
-        showHiddenNotes = !showHiddenNotes
-        setHiddenNotesItemActionText()
-    }
-
-    fun setHiddenNotesItemActionText() {
-        if (hasMenu) mainMenu?.findItem(R.id.action_show_hidden_notes)?.isChecked = showHiddenNotes
-    }
-
     protected fun applyNavToEditorAnimation(position: Int?) {
         // Bug fix. See the the comments at the declaration of destinationChangedListener for more info.
         if (!isListenerSet) {
@@ -444,74 +368,34 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
         val isNormal = !note.isDeleted && !note.isArchived
 
         BottomSheet.show(note.title, parentFragmentManager) {
-            action(R.string.action_unpin, R.drawable.ic_unpin, condition = note.isPinned && isNormal) {
-                activityModel.pinNotes(note)
-                // Refresh widgets to reflect pin state change
-                WidgetUpdateHelper.updateAllWidgets(requireContext())
-            }
-            action(R.string.action_pin, R.drawable.ic_pin, condition = !note.isPinned && isNormal) {
-                activityModel.pinNotes(note)
-                // Refresh widgets to reflect pin state change
-                WidgetUpdateHelper.updateAllWidgets(requireContext())
-            }
             action(R.string.action_restore, R.drawable.ic_restore, condition = note.isDeleted) {
                 activityModel.restoreNotes(note)
             }
             action(R.string.action_delete_permanently, R.drawable.ic_bin, condition = note.isDeleted) {
                 activityModel.deleteNotesPermanently(note)
-                sendMessage(getString(R.string.indicator_deleted_note_permanently))
+                showMessage(getString(R.string.indicator_deleted_note_permanently))
             }
             action(R.string.action_archive, R.drawable.ic_archive_action, condition = !note.isArchived && isNormal) {
                 activityModel.archiveNotes(note)
-                sendMessage(getString(R.string.indicator_archive_note))
+                showMessage(getString(R.string.indicator_archive_note))
             }
             action(R.string.action_unarchive, R.drawable.ic_unarchive, condition = note.isArchived) {
                 activityModel.unarchiveNotes(note)
-            }
-            action(R.string.action_move_to, R.drawable.ic_notebook_swap, condition = isNormal) {
-                showMoveToNotebookDialog(note)
             }
             action(R.string.action_delete, R.drawable.ic_bin, condition = !note.isDeleted) {
                 activityModel.deleteNotes(note)
                 lifecycleScope.launch {
                     if (data.noteDeletionTimeInDays == 0L) {
-                        sendMessage(getString(R.string.indicator_deleted_note_permanently))
+                        showMessage(getString(R.string.indicator_deleted_note_permanently))
                     } else {
-                        sendMessage(getString(R.string.indicator_moved_note_to_bin))
+                        showMessage(getString(R.string.indicator_moved_note_to_bin))
                     }
                 }
-            }
-            action(R.string.action_show, R.drawable.ic_show, condition = note.isHidden) {
-                activityModel.showNotes(note)
-            }
-            action(R.string.action_hide, R.drawable.ic_hidden, condition = !note.isHidden) {
-                activityModel.hideNotes(note)
-            }
-            action(R.string.action_compact_preview, R.drawable.ic_preview, condition = !note.isCompactPreview) {
-                activityModel.makeNotesCompactPreview(note)
-            }
-            action(R.string.action_full_preview, R.drawable.ic_preview, condition = note.isCompactPreview) {
-                activityModel.makeNotesFullPreview(note)
-            }
-            action(R.string.action_disable_screen_always_on, R.drawable.ic_pin, condition = !note.isDeleted && note.screenAlwaysOn) {
-                activityModel.disableScreenAlwaysOn(note)
-            }
-            action(R.string.action_enable_screen_always_on, R.drawable.ic_pin, condition = !note.isDeleted && !note.screenAlwaysOn) {
-                activityModel.enableScreenAlwaysOn(note)
-            }
-            action(R.string.action_disable_markdown, R.drawable.ic_markdown, condition = !note.isDeleted && note.isMarkdownEnabled) {
-                activityModel.disableMarkdown(note)
-            }
-            action(R.string.action_enable_markdown, R.drawable.ic_markdown, condition = !note.isDeleted && !note.isMarkdownEnabled) {
-                activityModel.enableMarkdown(note)
             }
             action(R.string.action_duplicate, R.drawable.ic_duplicate, condition = isNormal) {
                 activityModel.duplicateNotes(note)
             }
-            action(R.string.action_export, R.drawable.ic_export_note) {
-                activityModel.notesToBackup = setOf(note)
-                exportNotesLauncher.launch(null)
-            }
+
             action(R.string.action_share, R.drawable.ic_share) {
                 shareNote(requireContext(), note)
             }
@@ -519,5 +403,11 @@ abstract class AbstractNotesFragment(@LayoutRes resId: Int) : BaseFragment(resId
                 toggleNoteSelected(note.id)
             }
         }
+    }
+
+    private fun showMessage(msg: String) {
+        val view = snackbarLayout ?: view ?: return
+        snackbar = Snackbar.make(view, msg, Snackbar.LENGTH_SHORT)
+        snackbar?.show()
     }
 }

@@ -49,14 +49,12 @@ class DeletedFragment : AbstractNotesFragment(R.layout.fragment_deleted) {
         super.onCreateOptionsMenu(menu, inflater)
         inflater.inflate(R.menu.deleted, menu)
         mainMenu = menu
-        setHiddenNotesItemActionText()
     }
 
     @Deprecated("Deprecated in Java")
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_empty_bin -> showEmptyBinDialog()
-            R.id.action_show_hidden_notes -> toggleHiddenNotes()
             R.id.action_select_all -> selectAllNotes()
             R.id.action_search -> findNavController().navigateSafely(DeletedFragmentDirections.actionDeletedToSearch())
         }

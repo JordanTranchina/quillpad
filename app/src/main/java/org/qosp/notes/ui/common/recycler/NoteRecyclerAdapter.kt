@@ -4,13 +4,12 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import io.noties.markwon.Markwon
+
 import org.qosp.notes.data.model.Note
 import org.qosp.notes.databinding.LayoutNoteBinding
 
 class NoteRecyclerAdapter(
     var listener: NoteRecyclerListener?,
-    private val markwon: Markwon,
 ) : ExtendedListAdapter<Note, NoteViewHolder>(DiffCallback()) {
 
     private var allItems = listOf<Note>()
@@ -18,17 +17,8 @@ class NoteRecyclerAdapter(
     var searchMode: Boolean = false
 
     private val tasksViewPool = RecyclerView.RecycledViewPool()
-    private val attachmentsViewPool = RecyclerView.RecycledViewPool()
 
-    var showHiddenNotes: Boolean = false
-        set(value) {
-            field = value
-            if (field) {
-                super.submitList(allItems)
-            } else {
-                super.submitList(visibleItems)
-            }
-        }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
         val binding = LayoutNoteBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -37,9 +27,7 @@ class NoteRecyclerAdapter(
             listener = listener,
             context = parent.context,
             searchMode = searchMode,
-            markwon = markwon,
             tasksViewPool = tasksViewPool,
-            attachmentsViewPool = attachmentsViewPool,
         )
     }
 
@@ -64,13 +52,9 @@ class NoteRecyclerAdapter(
     override fun submitList(list: List<Note>?) {
         if (list != null) {
             allItems = list
-            visibleItems = list.filterNot { it.isHidden }
+            visibleItems = list // No hidden notes support
 
-            if (showHiddenNotes) {
-                super.submitList(allItems)
-            } else {
-                super.submitList(visibleItems)
-            }
+            super.submitList(visibleItems)
         }
     }
 
@@ -86,16 +70,10 @@ class NoteRecyclerAdapter(
         override fun getChangePayload(oldItem: Note, newItem: Note): Any? {
             val payloads = mutableListOf<Payload>()
             if (oldItem.title != newItem.title) payloads.add(Payload.TitleChanged)
-            if (oldItem.content != newItem.content) payloads.add(Payload.ContentChanged)
-            if (oldItem.isPinned != newItem.isPinned) payloads.add(Payload.PinChanged)
-            if (oldItem.isMarkdownEnabled != newItem.isMarkdownEnabled) payloads.add(Payload.MarkdownChanged)
-            if (oldItem.isHidden != newItem.isHidden) payloads.add(Payload.HiddenChanged)
+
             if (oldItem.color != newItem.color) payloads.add(Payload.ColorChanged)
             if (oldItem.isArchived != newItem.isArchived) payloads.add(Payload.ArchivedChanged)
             if (oldItem.isDeleted != newItem.isDeleted) payloads.add(Payload.DeletedChanged)
-            if (oldItem.reminders != newItem.reminders) payloads.add(Payload.RemindersChanged)
-            if (oldItem.tags != newItem.tags) payloads.add(Payload.TagsChanged)
-            if (oldItem.attachments != newItem.attachments) payloads.add(Payload.AttachmentsChanged)
             if (oldItem.taskList != newItem.taskList) payloads.add(Payload.TasksChanged)
 
             return payloads.takeIf { it.isNotEmpty() }
@@ -106,14 +84,8 @@ class NoteRecyclerAdapter(
         TitleChanged,
         ArchivedChanged,
         DeletedChanged,
-        ContentChanged,
-        PinChanged,
-        MarkdownChanged,
-        HiddenChanged,
+
         ColorChanged,
-        TagsChanged,
-        RemindersChanged,
-        AttachmentsChanged,
         TasksChanged,
     }
 }

@@ -16,7 +16,7 @@ import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.RecyclerView
-import io.noties.markwon.Markwon
+
 import org.qosp.notes.R
 import org.qosp.notes.data.model.NoteTask
 import org.qosp.notes.databinding.LayoutTaskBinding
@@ -33,7 +33,6 @@ class TaskViewHolder(
     private val binding: LayoutTaskBinding,
     listener: TaskRecyclerListener?,
     private val inPreview: Boolean,
-    private val markwon: Markwon,
 ) : RecyclerView.ViewHolder(binding.root) {
 
     private var isContentLoaded: Boolean = false
@@ -162,10 +161,13 @@ class TaskViewHolder(
 
     private fun setTextViewText(text: String, isChecked: Boolean) {
         binding.textView.text.toSpannable().clearSpans()
+        // Simple strikethrough if needed or just text. For now just text.
+        // If we want strikethrough we can add SortSpan or StrikethroughSpan, but let's keep it simple first.
+        binding.textView.text = text
         if (isChecked && text.isNotBlank()) {
-            markwon.setMarkdown(binding.textView, "~~${text.trim()}~~")
+             binding.textView.paintFlags = binding.textView.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
         } else {
-            binding.textView.text = text
+             binding.textView.paintFlags = binding.textView.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
     }
 

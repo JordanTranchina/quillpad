@@ -75,10 +75,7 @@ class SettingsFragment : BaseFragment(resId = R.layout.fragment_settings) {
 
         binding.settingRestoreNotes.setOnClickListener { loadBackupLauncher.launch(null) }
 
-        binding.settingBackupNotes.setOnClickListener {
-            activityModel.notesToBackup = null
-            exportNotesLauncher.launch(null)
-        }
+
     }
 
     private fun setupPreferenceObservers() {

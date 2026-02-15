@@ -47,14 +47,12 @@ class ArchiveFragment : AbstractNotesFragment(R.layout.fragment_archive) {
         super.onCreateOptionsMenu(menu, inflater)
         inflater.inflate(R.menu.archive, menu)
         mainMenu = menu
-        setHiddenNotesItemActionText()
     }
 
     @Deprecated("")
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_search -> findNavController().navigateSafely(ArchiveFragmentDirections.actionArchiveToSearch())
-            R.id.action_show_hidden_notes -> toggleHiddenNotes()
             R.id.action_select_all -> selectAllNotes()
         }
         return super.onOptionsItemSelected(item)

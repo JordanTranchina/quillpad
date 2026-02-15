@@ -80,9 +80,8 @@
                 android:name="noteId"
                 android:defaultValue="0L"
                 app:argType="long"/>
-        <argument android:name="newNoteNotebookId"
-                  android:defaultValue="0L"
-                  app:argType="long"/>
+
+
         <argument android:name="newNoteIsList"
                   android:defaultValue="false"
                   app:argType="boolean"/>
@@ -92,11 +91,6 @@
         <argument android:name="newNoteContent"
                   android:defaultValue=""
                   app:argType="string"/>
-        <argument android:name="newNoteAttachments"
-                  app:argType="org.qosp.notes.data.model.Attachment[]"
-                  android:defaultValue="@null"
-                  app:nullable="true"/>
-
     </fragment>
 
     <fragment
